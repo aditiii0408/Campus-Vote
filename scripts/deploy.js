@@ -1,0 +1,11 @@
+import fs from 'node:fs';
+import { JsonRpcProvider, ContractFactory } from 'ethers';
+import { compile } from './compile.js';
+const provider = new JsonRpcProvider('http://127.0.0.1:8545', 31337);
+const artifact = compile();
+const contract = await new ContractFactory(artifact.abi, artifact.evm.bytecode.object, await provider.getSigner(0)).deploy();
+await contract.waitForDeployment();
+fs.mkdirSync('public', { recursive: true });
+fs.writeFileSync('public/deployment.json', JSON.stringify({ address: await contract.getAddress(), chainId: 31337, abi: artifact.abi }, null, 2));
+console.log(`CampusVote deployed: ${await contract.getAddress()}\nStart the UI with npm run dev.`);
+provider.destroy();

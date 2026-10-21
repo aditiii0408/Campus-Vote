@@ -1,0 +1,33 @@
+import { chromium } from '@playwright/test';
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const browser = await chromium.launch({channel:'chrome',headless:true});
+const page = await browser.newPage({viewport:{width:1440,height:1080}});
+const errors=[];
+fs.mkdirSync('artifacts',{recursive:true});
+page.on('pageerror',e=>errors.push(e.message));
+try {
+  await page.goto(process.env.APP_URL || 'http://127.0.0.1:5173');
+  await page.getByRole('button',{name:/Select candidate/}).first().click();
+  await page.getByRole('button',{name:'Cast my vote'}).click();
+  await page.getByRole('button',{name:'Confirm vote'}).click();
+  await page.getByText('Preview vote recorded',{exact:true}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'Vote recorded',exact:true}).isDisabled(),true);
+  await page.evaluate(()=>window.scrollTo(0,0));
+  await page.screenshot({path:'artifacts/desktop.png',fullPage:true});
+  await page.getByRole('button',{name:'Results',exact:true}).click();
+  await page.getByText('1 votes · 100%').waitFor();
+  await page.getByRole('button',{name:'Setup guide',exact:true}).click();
+  await page.getByRole('heading',{name:'Set up MetaMask'}).waitFor();
+  await page.setViewportSize({width:375,height:812});
+  await page.getByRole('button',{name:'Election',exact:true}).click();
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth > window.innerWidth),false);
+  await page.evaluate(()=>window.scrollTo(0,0));
+  await page.screenshot({path:'artifacts/mobile.png',fullPage:true});
+  await page.reload();
+  await page.getByRole('button',{name:'Use blockchain'}).click();
+  await page.getByRole('button',{name:'Connect wallet',exact:true}).click();
+  await page.getByRole('status').filter({hasText:'Install the MetaMask'}).waitFor();
+  assert.deepEqual(errors,[]);
+  console.log('PASS: preview voting, duplicate prevention, results, setup, mobile overflow, and missing wallet feedback.');
+} finally {await browser.close();}
